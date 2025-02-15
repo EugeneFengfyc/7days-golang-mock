@@ -5,24 +5,22 @@ import (
 	"net/http"
 )
 
-// HandlerFunc defines the request handler used by the framework.
-type HandlerFunc func(w http.ResponseWriter, r *http.Request)
+type HandlerFunc func(*Context)
 
 // Engine is the core structure of the framework that holds the router.
 type Engine struct {
-	router map[string]HandlerFunc
+	router *router
 }
 
-// New creates a new Engine instance with an initialized router.
+// New is the constructor of gee.Engine
 func New() *Engine {
-	return &Engine{router: make(map[string]HandlerFunc)}
+	return &Engine{router: newRouter()}
 }
 
 // addRoute registers a handler for a given HTTP method and URL pattern.
 func (engine *Engine) addRoute(method string, pattern string, handler HandlerFunc) {
-	key := method + "-" + pattern // Unique key combining HTTP method and URL pattern
 	log.Printf("Route: %s - %q", method, pattern)
-	engine.router[key] = handler
+	engine.router.addRoute(method, pattern, handler)
 }
 
 func (engine *Engine) GET(pattern string, handler HandlerFunc) {
@@ -40,10 +38,6 @@ func (engine *Engine) Run(addr string) error {
 
 // ServeHTTP handles incoming HTTP requests, satisfying the http.Handler interface.
 func (engine *Engine) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	key := request.Method + "-" + request.URL.Path // Generates the key to look up the handler
-	if handler, ok := engine.router[key]; ok {
-		handler(writer, request) // Executes the matched handler
-	} else {
-		log.Printf("404 not found: %s", request.URL.Path) // Logs if no handler matches the request
-	}
+	c := newContext(writer, request)
+	engine.router.handle(c)
 }
